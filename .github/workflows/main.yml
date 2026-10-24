@@ -17,7 +17,7 @@ jobs:
       run: |
         if [ -f *.zip ]; then
           unzip *.zip
-          rm *.zip # Удаляем сам архив, чтобы он не мешал поиску
+          rm *.zip
         fi
 
     - name: Set up JDK 17
@@ -26,23 +26,28 @@ jobs:
         java-version: '17'
         distribution: 'temurin'
 
-    - name: Find and Build Project
+    - name: Fix Missing Gradle Wrapper and Build
       run: |
-        # Ищем файл gradlew в подпапках
-        GRADLEW_PATH=$(find . -name "gradlew" -not -path "*/.*" | head -n 1)
+        # Ищем папку, в которой лежит файл build.gradle или build.gradle.kts
+        BUILD_FILE_PATH=$(find . -name "build.gradle*" -not -path "*/.*" | head -n 1)
         
-        if [ -z "$GRADLEW_PATH" ]; then
-          echo "Ошибка: Скрипт сборки gradlew не найден!"
+        if [ -z "$BUILD_FILE_PATH" ]; then
+          echo "Ошибка: В архиве не найден файл build.gradle! Проверьте структуру архива."
           exit 1
         fi
         
-        # Переходим в папку с проектом
-        PROJECT_DIR=$(dirname "$GRADLEW_PATH")
+        PROJECT_DIR=$(dirname "$BUILD_FILE_PATH")
         cd "$PROJECT_DIR"
         
-        echo "Проект найден в папке: $PROJECT_DIR"
+        echo "Проект Android найден в папке: $PROJECT_DIR"
         
-        # Запускаем сборку
+        # Если файла gradlew нет, генерируем его стандартной командой gradle wrapper
+        if [ ! -f "gradlew" ]; then
+          echo "Файл gradlew не найден. Устанавливаем Gradle Wrapper..."
+          gradle wrapper --gradle-version 8.0 # Создаем недостающий скрипт сборки
+        fi
+        
+        # Запускаем сборку APK
         chmod +x gradlew
         ./gradlew assembleDebug
 
