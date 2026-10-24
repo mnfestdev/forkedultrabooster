@@ -7,38 +7,44 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
 
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
 
-    - name: Find and Unzip source code
+    - name: Unzip source code
       run: |
         if [ -f *.zip ]; then
           unzip *.zip
+          rm *.zip # Удаляем сам архив, чтобы он не мешал поиску
         fi
 
-    - name: set up JDK 17
+    - name: Set up JDK 17
       uses: actions/setup-java@v4
       with:
         java-version: '17'
         distribution: 'temurin'
-        cache: gradle
 
-    - name: Grant execute permission for gradlew
+    - name: Find and Build Project
       run: |
-        chmod +x gradlew || true
-        chmod +x app/gradlew || true
-      continue-on-error: true
-
-    - name: Build with Gradle
-      run: |
-        if [ -f ./gradlew ]; then
-          ./gradlew assembleDebug
-        else
-          cd $(find . -name gradlew -exec dirname {} \;) && ./gradlew assembleDebug
+        # Ищем файл gradlew в подпапках
+        GRADLEW_PATH=$(find . -name "gradlew" -not -path "*/.*" | head -n 1)
+        
+        if [ -z "$GRADLEW_PATH" ]; then
+          echo "Ошибка: Скрипт сборки gradlew не найден!"
+          exit 1
         fi
+        
+        # Переходим в папку с проектом
+        PROJECT_DIR=$(dirname "$GRADLEW_PATH")
+        cd "$PROJECT_DIR"
+        
+        echo "Проект найден в папке: $PROJECT_DIR"
+        
+        # Запускаем сборку
+        chmod +x gradlew
+        ./gradlew assembleDebug
 
     - name: Upload APK
       uses: actions/upload-artifact@v4
